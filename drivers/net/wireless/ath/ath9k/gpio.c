@@ -48,6 +48,8 @@ void ath_init_leds(struct ath_softc *sc)
 			sc->sc_ah->led_pin = ATH_LED_PIN_9485;
 		else if (AR_SREV_9300(sc->sc_ah))
 			sc->sc_ah->led_pin = ATH_LED_PIN_9300;
+		else if (AR_SREV_9462(sc->sc_ah))
+			sc->sc_ah->led_pin = ATH_LED_PIN_9462;
 		else
 			sc->sc_ah->led_pin = ATH_LED_PIN_DEF;
 	}
@@ -82,9 +84,14 @@ void ath_init_leds(struct ath_softc *sc)
 static bool ath_is_rfkill_set(struct ath_softc *sc)
 {
 	struct ath_hw *ah = sc->sc_ah;
+	bool is_blocked;
 
-	return ath9k_hw_gpio_get(ah, ah->rfkill_gpio) ==
+	ath9k_ps_wakeup(sc);
+	is_blocked = ath9k_hw_gpio_get(ah, ah->rfkill_gpio) ==
 				  ah->rfkill_polarity;
+	ath9k_ps_restore(sc);
+
+	return is_blocked;
 }
 
 void ath9k_rfkill_poll_state(struct ieee80211_hw *hw)
@@ -148,7 +155,8 @@ static void ath9k_gen_timer_start(struct ath_hw *ah,
 	if ((ah->imask & ATH9K_INT_GENTIMER) == 0) {
 		ath9k_hw_disable_interrupts(ah);
 		ah->imask |= ATH9K_INT_GENTIMER;
-		ath9k_hw_set_interrupts(ah, ah->imask);
+		ath9k_hw_set_interrupts(ah);
+		ath9k_hw_enable_interrupts(ah);
 	}
 }
 
@@ -162,7 +170,8 @@ static void ath9k_gen_timer_stop(struct ath_hw *ah, struct ath_gen_timer *timer)
 	if (timer_table->timer_mask.val == 0) {
 		ath9k_hw_disable_interrupts(ah);
 		ah->imask &= ~ATH9K_INT_GENTIMER;
-		ath9k_hw_set_interrupts(ah, ah->imask);
+		ath9k_hw_set_interrupts(ah);
+		ath9k_hw_enable_interrupts(ah);
 	}
 }
 
@@ -180,8 +189,8 @@ static void ath_btcoex_period_timer(unsigned long data)
 	bool is_btscan;
 
 	ath9k_ps_wakeup(sc);
-	ath_detect_bt_priority(sc);
-
+	if (!(ah->caps.hw_caps & ATH9K_HW_CAP_MCI))
+		ath_detect_bt_priority(sc);
 	is_btscan = sc->sc_flags & SC_OP_BT_SCAN;
 
 	spin_lock_bh(&btcoex->btcoex_lock);
@@ -189,6 +198,7 @@ static void ath_btcoex_period_timer(unsigned long data)
 	ath9k_hw_btcoex_bt_stomp(ah, is_btscan ? ATH_BTCOEX_STOMP_ALL :
 			      btcoex->bt_stomp_type);
 
+	ath9k_hw_btcoex_enable(ah);
 	spin_unlock_bh(&btcoex->btcoex_lock);
 
 	if (btcoex->btcoex_period != btcoex->btcoex_no_stomp) {
@@ -203,8 +213,9 @@ static void ath_btcoex_period_timer(unsigned long data)
 	}
 
 	ath9k_ps_restore(sc);
+	timer_period = btcoex->btcoex_period / 1000;
 	mod_timer(&btcoex->period_timer, jiffies +
-				  msecs_to_jiffies(ATH_BTCOEX_DEF_BT_PERIOD));
+				  msecs_to_jiffies(timer_period));
 }
 
 /*
@@ -230,6 +241,7 @@ static void ath_btcoex_no_stomp_timer(void *arg)
 	 else if (btcoex->bt_stomp_type == ATH_BTCOEX_STOMP_ALL)
 		ath9k_hw_btcoex_bt_stomp(ah, ATH_BTCOEX_STOMP_LOW);
 
+	ath9k_hw_btcoex_enable(ah);
 	spin_unlock_bh(&btcoex->btcoex_lock);
 	ath9k_ps_restore(sc);
 }

@@ -195,36 +195,28 @@ static const struct file_operations fops_bmisstime = {
 	.llseek = default_llseek,
 };
 
-static ssize_t ath6kl_scan_ctrl_flag_write(struct file *file,
-					   const char __user *user_buf,
-					   size_t count, loff_t *ppos)
+static ssize_t ath6kl_max_num_sta_write(struct file *file,
+				      const char __user *user_buf,
+				      size_t count, loff_t *ppos)
 {
 	struct ath6kl *ar = file->private_data;
-	struct ath6kl_vif *vif;
-	u8 ctrl_flag;
 	int ret;
+	u8 val;
 
-	vif = ath6kl_vif_first(ar);
-	if (!vif)
-		return -EIO;
-
-	ret = kstrtou8_from_user(user_buf, count, 0, &ctrl_flag);
+	ret = kstrtou8_from_user(user_buf, count, 0, &val);
 	if (ret)
 		return ret;
 
-	if (ctrl_flag > ATH6KL_MAX_SCAN_CTRL_FLAGS)
-		ctrl_flag = ATH6KL_DEFAULT_SCAN_CTRL_FLAGS;
-
-	vif->scan_ctrl_flag = ctrl_flag;
-	ath6kl_wmi_scanparams_cmd(ar->wmi, 0, 0, 0, vif->bg_scan_period, 0, 0,
-				  0, 3, ctrl_flag, 0, 0);
+	ret = ath6kl_wmi_ap_set_num_sta(ar->wmi, 0, val);
+	if (ret)
+		return ret;
 
 	return count;
 }
 
-static const struct file_operations fops_scanctrl_flag = {
-	.write = ath6kl_scan_ctrl_flag_write,
+static const struct file_operations fops_max_num_sta = {
 	.open = ath6kl_debugfs_open_pri,
+	.write = ath6kl_max_num_sta_write,
 	.owner = THIS_MODULE,
 	.llseek = default_llseek,
 };
@@ -237,8 +229,8 @@ int ath6kl_init_debugfs_pri(struct ath6kl *ar)
 	debugfs_create_file("bmiss_time", S_IRUSR | S_IWUSR, ar->debugfs_phy,
 			    ar, &fops_bmisstime);
 
-	debugfs_create_file("scan_ctrl_flag", S_IRUSR, ar->debugfs_phy, ar,
-			    &fops_scanctrl_flag);
+	debugfs_create_file("max_num_sta", S_IWUSR, ar->debugfs_phy,
+			    ar, &fops_max_num_sta);
 
 	return 0;
 }

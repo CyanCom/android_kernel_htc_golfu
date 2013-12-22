@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Qualcomm Atheros
+ * Copyright (c) 2010-2011 Atheros Communications Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,11 +14,15 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef DBGLOG_H
-#define DBGLOG_H
+#ifndef AR9003_RTT_H
+#define AR9003_RTT_H
 
-void ath6kl_dbglog_add(const u8 *buf, size_t len);
-int ath6kl_dbglog_init(void);
-void ath6kl_dbglog_deinit(void);
+void ar9003_hw_rtt_enable(struct ath_hw *ah);
+void ar9003_hw_rtt_disable(struct ath_hw *ah);
+void ar9003_hw_rtt_set_mask(struct ath_hw *ah, u32 rtt_mask);
+bool ar9003_hw_rtt_force_restore(struct ath_hw *ah);
+void ar9003_hw_rtt_load_hist(struct ath_hw *ah, u8 chain, u32 *table);
+void ar9003_hw_rtt_fill_hist(struct ath_hw *ah, u8 chain, u32 *table);
+void ar9003_hw_rtt_clear_hist(struct ath_hw *ah);
 
-#endif /* DBGLOG_H */
+#endif

@@ -71,7 +71,13 @@ struct ath_regulatory {
 	char alpha2[2];
 	u16 country_code;
 	u16 max_power_level;
+#if 1 // by bbelief
+	u32 tp_scale;
+#endif
 	u16 current_rd;
+#if 1 // by bbelief
+	u16 current_rd_ext;
+#endif
 	int16_t power_limit;
 	struct reg_dmn_pair_mapping *regpair;
 };
@@ -138,6 +144,11 @@ struct ath_common {
 	u8 curbssid[ETH_ALEN];
 	u8 bssidmask[ETH_ALEN];
 
+#if 1 // by bbelief
+	u8 tx_chainmask;
+	u8 rx_chainmask;
+#endif
+
 	u32 rx_bufsize;
 
 	u32 keymax;
@@ -156,7 +167,9 @@ struct ath_common {
 	const struct ath_bus_ops *bus_ops;
 
 	bool btcoex_enabled;
+#if 0 // by bbelief	
 	bool disable_ani;
+#endif
 };
 
 struct sk_buff *ath_rxbuf_alloc(struct ath_common *common,
@@ -173,28 +186,23 @@ bool ath_hw_keyreset(struct ath_common *common, u16 entry);
 void ath_hw_cycle_counters_update(struct ath_common *common);
 int32_t ath_hw_get_listen_time(struct ath_common *common);
 
-extern __printf(2, 3) void ath_printk(const char *level, const char *fmt, ...);
-
-#define _ath_printk(level, common, fmt, ...)			\
-do {								\
-	__always_unused struct ath_common *unused = common;	\
-	ath_printk(level, fmt, ##__VA_ARGS__);			\
-} while (0)
+extern __attribute__ ((format (printf, 3, 4))) int
+ath_printk(const char *level, struct ath_common *common, const char *fmt, ...);
 
 #define ath_emerg(common, fmt, ...)				\
-	_ath_printk(KERN_EMERG, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_EMERG, common, fmt, ##__VA_ARGS__)
 #define ath_alert(common, fmt, ...)				\
-	_ath_printk(KERN_ALERT, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_ALERT, common, fmt, ##__VA_ARGS__)
 #define ath_crit(common, fmt, ...)				\
-	_ath_printk(KERN_CRIT, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_CRIT, common, fmt, ##__VA_ARGS__)
 #define ath_err(common, fmt, ...)				\
-	_ath_printk(KERN_ERR, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_ERR, common, fmt, ##__VA_ARGS__)
 #define ath_warn(common, fmt, ...)				\
-	_ath_printk(KERN_WARNING, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_WARNING, common, fmt, ##__VA_ARGS__)
 #define ath_notice(common, fmt, ...)				\
-	_ath_printk(KERN_NOTICE, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_NOTICE, common, fmt, ##__VA_ARGS__)
 #define ath_info(common, fmt, ...)				\
-	_ath_printk(KERN_INFO, common, fmt, ##__VA_ARGS__)
+	ath_printk(KERN_INFO, common, fmt, ##__VA_ARGS__)
 
 /**
  * enum ath_debug_level - atheros wireless debug level
@@ -248,20 +256,26 @@ enum ATH_DEBUG {
 #ifdef CONFIG_ATH_DEBUG
 
 #define ath_dbg(common, dbg_mask, fmt, ...)				\
-do {									\
+({								\
+	int rtn;						\
 	if ((common)->debug_mask & dbg_mask)				\
-		_ath_printk(KERN_DEBUG, common, fmt, ##__VA_ARGS__);	\
-} while (0)
-
+		rtn = ath_printk(KERN_DEBUG, common, fmt,	\
+				 ##__VA_ARGS__);		\
+	else							\
+		rtn = 0;					\
+								\
+	rtn;							\
+})
 #define ATH_DBG_WARN(foo, arg...) WARN(foo, arg)
 #define ATH_DBG_WARN_ON_ONCE(foo) WARN_ON_ONCE(foo)
 
 #else
 
-static inline  __attribute__ ((format (printf, 3, 4)))
-void ath_dbg(struct ath_common *common, enum ATH_DEBUG dbg_mask,
+static inline  __attribute__ ((format (printf, 3, 4))) int
+ath_dbg(struct ath_common *common, enum ATH_DEBUG dbg_mask,
 	     const char *fmt, ...)
 {
+	return 0;
 }
 #define ATH_DBG_WARN(foo, arg...) do {} while (0)
 #define ATH_DBG_WARN_ON_ONCE(foo) ({				\
